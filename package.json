@@ -13,6 +13,6 @@
     "build:windows": "CGO_ENABLED=1 go build -buildmode=c-shared -o dist/lib/windows/libprompt.dll src/main.go",
     "build:macos": "CGO_ENABLED=1 go build -buildmode=c-shared -o dist/lib/macos/libprompt.dylib src/main.go",
     "build": "bun run build:linux && bun run build:windows && bun run build:macos",
-    "start": "bun index.ts"
+    "start": "bun change-check.ts && bun index.ts"
   }
 }

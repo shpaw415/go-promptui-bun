@@ -1,9 +1,10 @@
 module go-prompt-ffi
 
-go 1.22.2
+go 1.25.5
 
 require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/manifoldco/promptui v0.9.0 // indirect
 	golang.org/x/sys v0.0.0-20181122145206-62eef0e2fa9b // indirect
 )
