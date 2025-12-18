@@ -3,58 +3,101 @@ package main
 import (
 	"C"
 	"fmt"
-	"unsafe"
 
 	"github.com/goccy/go-json"
 	"github.com/manifoldco/promptui"
 )
 
-func CallbackToJsonString(result interface{}) string {
-	jsonBytes, err := json.Marshal(result)
+type TextReturn struct {
+	Result string `json:"result"`
+	Error  string `json:"error,omitempty"`
+}
+
+func formatResponse(result string, err error) *C.char {
 	if err != nil {
-		return fmt.Sprintf("Erreur: %v", err)
+		res, err := json.Marshal(TextReturn { Error: fmt.Sprintf("Erreur: %v", err)})
+		if err != nil {
+			return C.CString(fmt.Sprintf("Erreur: %v", err))
+		}
+		return C.CString(string(res))
 	}
-	return string(jsonBytes)
+	res , err := json.Marshal(TextReturn { Result: result})
+	if err != nil {
+		return C.CString(fmt.Sprintf("Erreur: %v", err))
+	}
+	return C.CString(string(res))
+}
+
+
+type SelectProps struct {
+	Label      string   `json:"Label"`
+	Items      []string `json:"Items"`
+	Size	   int      `json:"Size"`
+	CursorPos  int      `json:"CursorPos"`
+	IsVimMode   bool     `json:"IsVimMode"`
+	HideHelp   bool     `json:"HideHelp"`
+	HideSelected  bool     `json:"HideSelected"`
+	Keys *promptui.SelectKeys `json:"Keys"`
+	StartInSearchMode bool     `json:"StartInSearchMode"`
+}
+type SelectPropsUnserializable struct {
+	Templates promptui.SelectTemplates
+	Searcher func()
+	Pointer func()
 }
 
 //export RunSelect
-func RunSelect(label *C.char, items **C.char, itemsCount C.int) *C.char {
-	goLabel := C.GoString(label)
-	goItems := make([]string, int(itemsCount))
-	itemPtrs := (*[1 << 28]*C.char)(unsafe.Pointer(items))[:itemsCount:itemsCount]
-	for i := 0; i < int(itemsCount); i++ {
-		goItems[i] = C.GoString(itemPtrs[i])
+func RunSelect(props *C.char) *C.char {
+	var sp SelectProps
+	if err := json.Unmarshal([]byte(C.GoString(props)), &sp);  err != nil {
+		return C.CString(fmt.Sprintf("Erreur: %v", err))
 	}
 
+	if sp.Keys == nil {
+		sp.Keys = &promptui.SelectKeys{
+		Prev:     promptui.Key{Code: promptui.KeyPrev, Display: promptui.KeyPrevDisplay},
+		Next:     promptui.Key{Code: promptui.KeyNext, Display: promptui.KeyNextDisplay},
+		PageUp:   promptui.Key{Code: promptui.KeyBackward, Display: promptui.KeyBackwardDisplay},
+		PageDown: promptui.Key{Code: promptui.KeyForward, Display: promptui.KeyForwardDisplay},
+		Search:   promptui.Key{Code: '/', Display: "/"},
+	}
+	}
 	prompt := promptui.Select{
-		Label: goLabel,
-		Items: goItems,
+		Label:       sp.Label,
+		Items:       sp.Items,
+		Size:        sp.Size,
+		CursorPos:   sp.CursorPos,
+		IsVimMode:   sp.IsVimMode,
+		HideHelp:    sp.HideHelp,
+		HideSelected: sp.HideSelected,
+		Keys:        sp.Keys,
+		StartInSearchMode: sp.StartInSearchMode,
 	}
 
 	_, result, err := prompt.Run()
 
-	if err != nil {
-		return C.CString(fmt.Sprintf("Erreur: %v", err))
-	}
-
-	return C.CString(result)
+	return formatResponse(result, err)
 }
 
 type TextProps struct {
-    Label       string `json:"label"`
-    Default     string `json:"default"`
-    AllowEdit   bool   `json:"allow_edit"`
-    HideEntered bool   `json:"hide_entered"`
-    IsConfirm   bool   `json:"is_confirm"`
-    IsVimMode   bool   `json:"is_vim_mode"`
+    Label       string `json:"Label"`
+    Default     string `json:"Default"`
+    AllowEdit   bool   `json:"AllowEdit"`
+    HideEntered bool   `json:"HideEntered"`
+    IsConfirm   bool   `json:"IsConfirm"`
+    IsVimMode   bool   `json:"IsVimMode"`
+	Mask		rune   `json:"Mask"`
+}
+type TextPropsUnserializable struct {
+	Validate promptui.ValidateFunc
+	Templates *promptui.PromptTemplates
+	Pointer promptui.Pointer
 }
 
 //export RunText
-func RunText(props *C.char, validate *func(string) error) *C.char {
-    goJsonProps := C.GoString(props)
+func RunText(props *C.char) *C.char {
     var tp TextProps
-
-    if err := json.Unmarshal([]byte(goJsonProps), &tp); err != nil {
+    if err := json.Unmarshal([]byte(C.GoString(props)), &tp); err != nil {
         return C.CString(fmt.Sprintf("Erreur: %v", err))
     }
 
@@ -65,14 +108,11 @@ func RunText(props *C.char, validate *func(string) error) *C.char {
         HideEntered: tp.HideEntered,
         IsConfirm:   tp.IsConfirm,
         IsVimMode:   tp.IsVimMode,
-		Validate:    validate,
+		Mask:        tp.Mask,
     }
 
     result, err := prompt.Run()
-    if err != nil {
-        return C.CString(fmt.Sprintf("Erreur: %v", err))
-    }
-    return C.CString(result)
+    return  formatResponse(result, err)
 }
 
 func main() {

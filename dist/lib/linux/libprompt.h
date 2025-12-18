@@ -82,8 +82,8 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern char* RunSelect(char* label, char** items, int itemsCount);
-extern char* RunText(char* props, void* validate);
+extern char* RunSelect(char* props);
+extern char* RunText(char* props);
 
 #ifdef __cplusplus
 }
