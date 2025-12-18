@@ -1,0 +1,6 @@
+.vscode
+test
+change-check.ts
+go.mod
+go.sum
+hash-list.json
